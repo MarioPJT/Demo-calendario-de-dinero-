@@ -24,7 +24,9 @@ alter table public.profiles enable row level security;
 alter table public.payments enable row level security;
 -- El navegador solo puede editar preferencias; el rol admin se asigna con privilegios de servidor.
 revoke update on public.profiles from authenticated;
+grant select, insert on public.profiles to authenticated;
 grant update (display_name, settings) on public.profiles to authenticated;
+grant select, insert, update, delete on public.payments to authenticated;
 
 create policy "Users can read their profile" on public.profiles for select to authenticated using (id = (select auth.uid()));
 create policy "Users can create their profile" on public.profiles for insert to authenticated with check (id = (select auth.uid()) and role = 'user');
