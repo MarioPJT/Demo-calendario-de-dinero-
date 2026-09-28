@@ -32,12 +32,17 @@ jobs:
         run: npm ci
       - name: Generar la web
         run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
       - name: Subir la web generada
         uses: actions/upload-pages-artifact@v3
+        if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' }}
         with:
           path: ./dist
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4
+        if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' }}

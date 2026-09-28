@@ -1,6 +1,6 @@
 # Fecha · Calendario de pagos
 
-Organizador de pagos construido con React, TypeScript y Vite. Node.js se usa para instalar las dependencias y ejecutar el servidor de desarrollo y la compilación.
+Organizador de pagos con React, TypeScript y Vite. Supabase proporciona las cuentas, el almacenamiento en la nube y las políticas que aíslan los pagos de cada usuario.
 
 ## Desarrollo local
 
@@ -8,16 +8,23 @@ Requiere Node.js 20 o superior.
 
 ```bash
 npm ci
+Copy-Item .env.example .env.local
+# Añade la URL y la clave publicable de tu proyecto Supabase a .env.local
 npm run dev
 ```
 
-## Publicar automáticamente en GitHub Pages
+## Conectar Supabase
 
-1. Sube este proyecto a un repositorio de GitHub con rama `main` o `master`.
-2. En el repositorio, abre **Settings → Pages** y selecciona **GitHub Actions** como origen de publicación.
-3. Cada `push` a `main` o `master` compilará y publicará la web. También puedes iniciar la publicación manualmente en **Actions → Publicar en GitHub Pages → Run workflow**.
+1. Crea un proyecto en Supabase y copia su URL y su clave publicable (anon/public).
+2. En **SQL Editor**, ejecuta [`supabase/schema.sql`](supabase/schema.sql). Esto crea las tablas y activa RLS para que cada cuenta solo consulte y modifique sus propios pagos.
+3. En **Authentication → URL Configuration**, usa `https://mariopjt.github.io` como Site URL y añade `https://mariopjt.github.io/Demo-calendario-de-dinero-/**` a Redirect URLs.
+4. En el repositorio, abre **Settings → Secrets and variables → Actions** y crea estos repository secrets:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+5. Ejecuta **Actions → Publicar en GitHub Pages → Run workflow** para aplicar las claves en la siguiente publicación.
+6. Crea tu cuenta desde la aplicación. Luego, en SQL Editor, promuévela a administradora con la última instrucción comentada en `supabase/schema.sql`, sustituyendo el correo.
 
-La compilación se guarda en `dist/` y no es necesario subir esa carpeta al repositorio.
+Sin los dos secrets, GitHub Actions compila el proyecto pero omite la publicación. Los valores van en la configuración segura del repositorio y nunca en el código.
 
 ## Comandos
 
