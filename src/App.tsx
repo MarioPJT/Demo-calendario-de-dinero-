@@ -1,0 +1,70 @@
+import { useMemo, useState } from 'react';
+
+type Payment = { id: string; title: string; amount: number; date: string; time: string; note: string; color: string; done: boolean };
+const palette = ['#9C8CF4', '#F3A77E', '#6DBFA8', '#E6BC59', '#E785A5', '#78A9E8'];
+const today = new Date();
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const sample: Payment[] = [
+  { id: 'a', title: 'Arriendo', amount: 1450000, date: iso(new Date(today.getFullYear(), today.getMonth(), 3)), time: '09:00', note: 'Transferir a la cuenta de siempre', color: palette[0], done: true },
+  { id: 'b', title: 'Internet', amount: 89000, date: iso(new Date(today.getFullYear(), today.getMonth(), 8)), time: '10:30', note: 'Pagar desde la app', color: palette[2], done: false },
+  { id: 'c', title: 'Tarjeta de crédito', amount: 428500, date: iso(new Date(today.getFullYear(), today.getMonth(), 15)), time: '08:00', note: 'Pago mínimo + cuota del computador', color: palette[1], done: false },
+  { id: 'd', title: 'Luz y agua', amount: 176200, date: iso(new Date(today.getFullYear(), today.getMonth(), 20)), time: '12:00', note: '', color: palette[3], done: false },
+  { id: 'e', title: 'Suscripciones', amount: 54900, date: iso(new Date(today.getFullYear(), today.getMonth(), 26)), time: '09:30', note: 'Música + almacenamiento', color: palette[4], done: false },
+];
+const money = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+const monthLabel = (d: Date) => new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(d);
+const weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+function App() {
+  const [payments, setPayments] = useState<Payment[]>(() => {
+    try { const stored = localStorage.getItem('fecha-payments'); return stored ? JSON.parse(stored) as Payment[] : sample; } catch { return sample; }
+  });
+  const [month, setMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selected, setSelected] = useState(iso(today));
+  const [query, setQuery] = useState('');
+  const [modal, setModal] = useState(false);
+  const [editing, setEditing] = useState<Payment | null>(null);
+  const [dragged, setDragged] = useState<string | null>(null);
+  const [form, setForm] = useState({ title: '', amount: '', date: iso(today), time: '09:00', note: '', color: palette[0] });
+
+  const save = (next: Payment[]) => { setPayments(next); localStorage.setItem('fecha-payments', JSON.stringify(next)); };
+  const monthPayments = payments.filter(p => p.date.startsWith(`${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`));
+  const visible = monthPayments.filter(p => !query || p.title.toLowerCase().includes(query.toLowerCase()) || p.note.toLowerCase().includes(query.toLowerCase()));
+  const total = monthPayments.reduce((sum, p) => sum + p.amount, 0);
+  const pending = monthPayments.filter(p => !p.done).reduce((sum, p) => sum + p.amount, 0);
+  const completed = monthPayments.filter(p => p.done).length;
+  const upcoming = useMemo(() => payments.filter(p => !p.done && p.date >= iso(today)).sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).slice(0, 4), [payments]);
+  const firstOffset = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const cells = [...Array(firstOffset).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+  while (cells.length % 7) cells.push(null);
+  const byDate = (date: string) => visible.filter(p => p.date === date).sort((a, b) => a.time.localeCompare(b.time));
+
+  const openNew = (date = selected) => { setEditing(null); setForm({ title: '', amount: '', date, time: '09:00', note: '', color: palette[Math.floor(Math.random() * palette.length)] }); setModal(true); };
+  const openEdit = (p: Payment) => { setEditing(p); setForm({ title: p.title, amount: String(p.amount), date: p.date, time: p.time, note: p.note, color: p.color }); setModal(true); };
+  const submit = (e: React.FormEvent) => { e.preventDefault(); if (!form.title.trim() || Number(form.amount) <= 0) return; const next = editing ? payments.map(p => p.id === editing.id ? { ...p, ...form, title: form.title.trim(), amount: Number(form.amount) } : p) : [...payments, { ...form, id: crypto.randomUUID(), title: form.title.trim(), amount: Number(form.amount), done: false }]; save(next); setSelected(form.date); setMonth(new Date(`${form.date}T12:00:00`)); setModal(false); };
+  const toggleDone = (id: string) => save(payments.map(p => p.id === id ? { ...p, done: !p.done } : p));
+  const remove = (id: string) => { save(payments.filter(p => p.id !== id)); setModal(false); };
+  const movePayment = (date: string) => { if (!dragged) return; save(payments.map(p => p.id === dragged ? { ...p, date } : p)); setDragged(null); setSelected(date); };
+  const moveMonth = (offset: number) => setMonth(new Date(month.getFullYear(), month.getMonth() + offset, 1));
+
+  return <div className="app-shell">
+    <aside className="sidebar">
+      <a className="brand" href="#"><span className="brand-icon">f.</span><span>fecha<span className="brand-dot">.</span></span></a>
+      <div className="side-section"><div className="side-label">TU ESPACIO</div><button className="nav-item active"><span className="nav-icon">▦</span> Calendario <span className="nav-count">{monthPayments.length}</span></button><button className="nav-item" onClick={() => { setQuery(''); setSelected(iso(today)); setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); }}><span className="nav-icon">◷</span> Próximos pagos</button></div>
+      <div className="side-month"><div className="side-label">ESTE MES</div><div className="budget-card"><div className="budget-top"><span>Pagos del mes</span><span className="budget-spark">↗</span></div><div className="budget-total">{money(total)}</div><div className="budget-track"><span style={{ width: `${total ? Math.max(4, completed / monthPayments.length * 100) : 0}%` }} /></div><div className="budget-foot"><span>{completed} de {monthPayments.length} completados</span><span>{total ? Math.round(completed / monthPayments.length * 100) : 0}%</span></div></div></div>
+      <div className="side-upcoming"><div className="side-label">LO QUE VIENE <span className="mini-arrow">↗</span></div>{upcoming.length ? upcoming.map(p => <button className="upcoming-item" key={p.id} onClick={() => { setSelected(p.date); setMonth(new Date(`${p.date}T12:00:00`)); }}><span className="upcoming-mark" style={{ background: p.color }} /><span className="upcoming-copy"><strong>{p.title}</strong><small>{new Date(`${p.date}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })} · {p.time}</small></span><span className="upcoming-amount">{money(p.amount).replace(',00', '')}</span></button>) : <p className="empty-upcoming">Todo al día por ahora ✨</p>}</div>
+      <div className="sidebar-bottom"><div className="avatar">M</div><div className="user-copy"><strong>Mi espacio</strong><small>Finanzas personales</small></div><button className="more-btn" aria-label="Más opciones">···</button></div>
+    </aside>
+
+    <main className="main-content"><header className="topbar"><div className="breadcrumb">Mi espacio <span>/</span> <strong>Calendario</strong></div><div className="top-actions"><label className="search-box"><span>⌕</span><input placeholder="Buscar pagos..." value={query} onChange={e => setQuery(e.target.value)} /><kbd>⌘ K</kbd></label><button className="icon-button" aria-label="Notificaciones">♧<i /></button><button className="add-button" onClick={() => openNew()}>＋ <span>Nuevo pago</span></button></div></header>
+      <div className="page-wrap"><div className="welcome-row"><div><div className="eyebrow"><span className="live-dot" /> TU DINERO, EN ORDEN</div><h1>Tu calendario<span className="title-period">.</span></h1><p className="welcome-sub">Cada pago en su lugar. Un poco más de tranquilidad.</p></div><div className="month-switcher"><button onClick={() => moveMonth(-1)} aria-label="Mes anterior">‹</button><span>{monthLabel(month)}</span><button onClick={() => moveMonth(1)} aria-label="Mes siguiente">›</button><button className="today-button" onClick={() => { setMonth(new Date(today.getFullYear(), today.getMonth(), 1)); setSelected(iso(today)); }}>Hoy</button></div></div>
+      <div className="stats-row"><div className="stat-card"><div className="stat-heading"><span>PROGRAMADO ESTE MES</span><span className="stat-icon purple">↗</span></div><div className="stat-value">{money(total)}</div><div className="stat-note">En {monthPayments.length} pagos <span>·</span> {monthLabel(month)}</div></div><div className="stat-card"><div className="stat-heading"><span>POR PAGAR</span><span className="stat-icon peach">◷</span></div><div className="stat-value">{money(pending)}</div><div className="stat-note"><span className="note-dot" /> {monthPayments.length - completed} pagos pendientes</div></div><div className="stat-card progress-stat"><div className="stat-heading"><span>PROGRESO DEL MES</span><span className="stat-icon mint">✓</span></div><div className="stat-value">{completed}<span className="stat-denom"> / {monthPayments.length}</span></div><div className="progress-track"><span style={{ width: `${monthPayments.length ? completed / monthPayments.length * 100 : 0}%` }} /></div></div></div>
+      <section className="calendar-card"><div className="calendar-header"><div><h2>Calendario de pagos</h2><p>Arrastra un pago a otro día para reprogramarlo</p></div><button className="calendar-add" onClick={() => openNew(selected)}>＋ <span>Agregar pago</span></button></div><div className="weekdays">{weekdays.map((w, i) => <div key={w} className={i > 4 ? 'weekend' : ''}>{w}</div>)}</div><div className="calendar-grid">{cells.map((day, i) => { if (!day) return <div className="day-cell blank" key={`blank-${i}`} />; const date = iso(new Date(month.getFullYear(), month.getMonth(), day)); const events = byDate(date); const isToday = date === iso(today); const isSelected = date === selected; return <div key={date} className={`day-cell ${i % 7 > 4 ? 'weekend' : ''} ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}`} onClick={() => setSelected(date)} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); movePayment(date); }}><div className="day-number"><span>{day}</span>{events.length > 0 && <span className="event-count">{events.length}</span>}</div>{events.slice(0, 2).map(p => <button key={p.id} draggable onDragStart={e => { e.stopPropagation(); setDragged(p.id); }} onDragEnd={() => setDragged(null)} onClick={e => { e.stopPropagation(); setSelected(date); openEdit(p); }} className={`event-chip ${p.done ? 'is-done' : ''}`} style={{ '--event-color': p.color, '--event-tint': `${p.color}20` } as React.CSSProperties} title={`${p.title} · ${money(p.amount)}`}><span className="event-time">{p.time}</span><span className="event-name">{p.title}</span></button>)}{events.length > 2 && <div className="more-events">+{events.length - 2} más</div>}</div>; })}</div><div className="calendar-legend"><span><i className="legend-dot purple-dot" /> Por pagar</span><span><i className="legend-dot green-dot" /> Completado</span><span className="legend-hint">✳ Tus pagos se guardan automáticamente</span></div></section>
+      <footer className="page-footer"><span>Un día a la vez. Vas muy bien.</span><span>HECHO PARA SENTIRTE EN CONTROL <span className="footer-heart">♥</span></span></footer></div>
+    </main>
+    {modal && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModal(false); }}><form className="payment-modal" onSubmit={submit}><div className="modal-top"><div><span className="modal-kicker">{editing ? 'EDITAR RECORDATORIO' : 'NUEVO RECORDATORIO'}</span><h2>{editing ? 'Edita tu pago' : 'Programa un pago'}<span className="title-period">.</span></h2></div><button type="button" className="close-button" onClick={() => setModal(false)}>×</button></div><label className="field-label">¿Qué tienes que pagar?<input autoFocus required placeholder="Ej. Arriendo, internet..." value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></label><div className="form-row"><label className="field-label">Valor del pago<div className="input-prefix"><span>$</span><input required min="1" type="number" placeholder="0" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} /></div></label><label className="field-label">Hora<input required type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} /></label></div><label className="field-label">Fecha de pago<input required type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></label><label className="field-label">Una nota para ti <span className="optional">OPCIONAL</span><textarea rows={3} placeholder="Detalles, cuenta, o algo que no quieras olvidar..." value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} /></label><div className="field-label color-label">Elige un color<div className="color-options">{palette.map(c => <button type="button" key={c} className={`color-swatch ${form.color === c ? 'chosen' : ''}`} style={{ background: c }} aria-label={`Color ${c}`} onClick={() => setForm({ ...form, color: c })}>{form.color === c && '✓'}</button>)}</div></div><div className="modal-actions">{editing && <button type="button" className="delete-button" onClick={() => remove(editing.id)}>Eliminar pago</button>}{editing && <button type="button" className={`done-button ${editing.done ? 'done' : ''}`} onClick={() => { toggleDone(editing.id); setModal(false); }}>{editing.done ? '✓ Completado' : 'Marcar listo'}</button>}<button className="save-button" type="submit">{editing ? 'Guardar cambios' : 'Guardar pago'} <span>→</span></button></div></form></div>}
+  </div>;
+}
+
+export default App;
