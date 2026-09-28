@@ -35,14 +35,27 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - name: Comprobar claves de Supabase
+        id: supabase-config
+        shell: bash
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [[ -n "$VITE_SUPABASE_URL" && -n "$VITE_SUPABASE_ANON_KEY" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Faltan los secrets de Supabase; no se publicará una versión sin autenticación."
+          fi
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
       - name: Subir la web generada
         uses: actions/upload-pages-artifact@v3
-        if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' }}
+        if: steps.supabase-config.outputs.configured == 'true'
         with:
           path: ./dist
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4
-        if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' }}
+        if: steps.supabase-config.outputs.configured == 'true'
