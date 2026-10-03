@@ -17,12 +17,13 @@ npm run dev
 
 1. Crea un proyecto en Supabase y copia su URL y su clave publicable (anon/public).
 2. En **SQL Editor**, ejecuta [`supabase/schema.sql`](supabase/schema.sql). Esto crea las tablas y activa RLS para que cada cuenta solo consulte y modifique sus propios pagos.
-3. En **Authentication → URL Configuration**, usa `https://mariopjt.github.io` como Site URL y añade `https://mariopjt.github.io/Demo-calendario-de-dinero-/**` a Redirect URLs.
-4. En el repositorio, abre **Settings → Secrets and variables → Actions** y crea estos repository secrets:
+3. Para habilitar **Administración → Usuarios**, ejecuta también [`supabase/admin_users.sql`](supabase/admin_users.sql). Las funciones validan el rol admin en el servidor, muestran solo el directorio y permiten cambiar roles; nunca devuelven pagos.
+4. En **Authentication → URL Configuration**, usa `https://mariopjt.github.io/Demo-calendario-de-dinero-/` como Site URL y añade `https://mariopjt.github.io/Demo-calendario-de-dinero-/**` a Redirect URLs.
+5. En el repositorio, abre **Settings → Secrets and variables → Actions** y crea estos repository secrets:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-5. Ejecuta **Actions → Publicar en GitHub Pages → Run workflow** para aplicar las claves en la siguiente publicación.
-6. Crea tu cuenta desde la aplicación. Luego, en SQL Editor, promuévela a administradora con la última instrucción comentada en `supabase/schema.sql`, sustituyendo el correo.
+6. Ejecuta **Actions → Publicar en GitHub Pages → Run workflow** para publicar la app.
+7. Crea tu cuenta desde la aplicación. Luego, en SQL Editor, promuévela a administradora con la última instrucción comentada en `supabase/schema.sql`, sustituyendo el correo.
 
 Sin los dos secrets, GitHub Actions compila el proyecto pero omite la publicación. Los valores van en la configuración segura del repositorio y nunca en el código.
 
