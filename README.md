@@ -1,6 +1,7 @@
 # Fecha · Calendario de pagos
 
 Organizador de pagos con React, TypeScript y Vite. Supabase proporciona las cuentas, el almacenamiento en la nube y las políticas que aíslan los pagos de cada usuario.
+Cada cuenta también puede elegir modo claro u oscuro, temas de color, foto de perfil y una imagen de fondo privada.
 
 ## Desarrollo local
 
