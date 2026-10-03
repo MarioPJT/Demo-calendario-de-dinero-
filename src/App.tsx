@@ -104,7 +104,7 @@ function App() {
         if (legacy.length) {
           const migrated = legacy.map(payment => ({ title: payment.title, amount: payment.amount, date: payment.date, time: payment.time, note: payment.note, color: payment.color, done: payment.done, user_id: userId }));
           const { data: inserted } = await client.from('payments').insert(migrated).select();
-          if (inserted) setPayments(inserted.map(row => ({ id: row.id, title: row.title, amount: Number(row.amount), date: row.date, time: String(row.time).slice(0, 5), note: row.note, color: row.color, done: row.done })));
+          if (inserted?.length) setPayments(inserted.map(row => ({ id: row.id, title: row.title, amount: Number(row.amount), date: row.date, time: String(row.time).slice(0, 5), note: row.note, color: row.color, done: row.done })));
         }
       }
     };
@@ -113,7 +113,7 @@ function App() {
       const { data } = await client.from('payments').select('*').eq('user_id', userId).order('date').order('time');
       if (data) {
         const synced = data.map(row => ({ id: row.id, title: row.title, amount: Number(row.amount), date: row.date, time: String(row.time).slice(0, 5), note: row.note, color: row.color, done: row.done }));
-        setPayments(current => !synced.length && current.length > 0 && event.eventType !== 'DELETE' ? current : synced);
+        setPayments(current => !synced.length && current.length > 0 ? current : synced);
       }
     }).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, event => {
       const profile = event.new as { role?: string; display_name?: string; settings?: Partial<Settings> };
