@@ -109,9 +109,12 @@ function App() {
       }
     };
     void loadCloud();
-    const channel = client.channel(`sync-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${userId}` }, async () => {
+    const channel = client.channel(`sync-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${userId}` }, async event => {
       const { data } = await client.from('payments').select('*').eq('user_id', userId).order('date').order('time');
-      if (data) setPayments(data.map(row => ({ id: row.id, title: row.title, amount: Number(row.amount), date: row.date, time: String(row.time).slice(0, 5), note: row.note, color: row.color, done: row.done })));
+      if (data) {
+        const synced = data.map(row => ({ id: row.id, title: row.title, amount: Number(row.amount), date: row.date, time: String(row.time).slice(0, 5), note: row.note, color: row.color, done: row.done }));
+        setPayments(current => !synced.length && current.length > 0 && event.eventType !== 'DELETE' ? current : synced);
+      }
     }).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, event => {
       const profile = event.new as { role?: string; display_name?: string; settings?: Partial<Settings> };
       if (profile.role) setRole(profile.role === 'admin' ? 'admin' : 'user');
