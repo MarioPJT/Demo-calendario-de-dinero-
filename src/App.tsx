@@ -109,7 +109,7 @@ function App() {
       }
     };
     void loadCloud();
-    const channel = client.channel(`sync-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${userId}` }, async event => {
+    const channel = client.channel(`sync-${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `user_id=eq.${userId}` }, async () => {
       const { data } = await client.from('payments').select('*').eq('user_id', userId).order('date').order('time');
       if (data) {
         const synced = data.map(row => ({ id: row.id, title: row.title, amount: Number(row.amount), date: row.date, time: String(row.time).slice(0, 5), note: row.note, color: row.color, done: row.done }));
