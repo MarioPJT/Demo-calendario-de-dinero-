@@ -27,6 +27,8 @@ npm run dev
 7. Ejecuta **Actions → Publicar en GitHub Pages → Run workflow** para publicar la app.
 8. Crea tu cuenta desde la aplicación. Luego, en SQL Editor, promuévela a administradora con la última instrucción comentada en `supabase/schema.sql`, sustituyendo el correo.
 
+En la pantalla de inicio de sesión, **¿Olvidaste tu contraseña?** envía un enlace de recuperación al correo de la cuenta. El enlace vuelve a la app para guardar una contraseña nueva. Supabase debe tener habilitados los correos de autenticación y la URL de la app en la lista de redirecciones; la entrega del correo depende de la configuración de correo del proyecto.
+
 Sin los dos secrets, GitHub Actions compila el proyecto pero omite la publicación. Los valores van en la configuración segura del repositorio y nunca en el código.
 
 ## Comandos

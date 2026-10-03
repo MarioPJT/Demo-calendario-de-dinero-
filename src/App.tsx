@@ -40,26 +40,58 @@ function usePrivateImage(path: string | undefined, userId: string | undefined) {
 }
 
 function AuthGate() {
-  const [creating, setCreating] = useState(false);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true); setMessage('');
-    const client = supabase;
-    if (!client) return;
-    const result = creating ? await client.auth.signUp({ email, password }) : await client.auth.signInWithPassword({ email, password });
-    setBusy(false);
-    if (result.error) setMessage(result.error.message);
-    else if (creating && !result.data.session) setMessage('Revisa tu correo para confirmar la cuenta y luego inicia sesión.');
+    if (!supabase) { setBusy(false); return; }
+    try {
+      if (mode === 'reset') {
+        const redirectTo = new URL(window.location.pathname, window.location.origin).toString();
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        setMessage(error ? 'No se pudo enviar el enlace. Revisa el correo e inténtalo de nuevo.' : 'Si ese correo tiene una cuenta, recibirás un enlace para restablecer la contraseña.');
+      } else {
+        const result = mode === 'signup' ? await supabase.auth.signUp({ email, password }) : await supabase.auth.signInWithPassword({ email, password });
+        if (result.error) setMessage(result.error.message);
+        else if (mode === 'signup' && !result.data.session) setMessage('Revisa tu correo para confirmar la cuenta y luego inicia sesión.');
+      }
+    } catch {
+      setMessage('No se pudo completar la solicitud. Revisa tu conexión e inténtalo de nuevo.');
+    } finally { setBusy(false); }
   };
-  return <div className="auth-screen"><form className="auth-card" onSubmit={submit}><div className="brand auth-brand"><span className="brand-icon">f.</span><span>fecha<span className="brand-dot">.</span></span></div><span className="modal-kicker">ESPACIO PERSONAL SEGURO</span><h1>{creating ? 'Crea tu cuenta' : 'Qué bueno verte'}<span className="title-period">.</span></h1><p>Entra para ver tus pagos y mantenerlos sincronizados en tus dispositivos.</p><label className="field-label">Correo electrónico<input autoComplete="email" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" /></label><label className="field-label">Contraseña<input autoComplete={creating ? 'new-password' : 'current-password'} type="password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} placeholder="Al menos 8 caracteres" /></label>{message && <div className="auth-message">{message}</div>}<button className="save-button auth-submit" disabled={busy}>{busy ? 'Un momento…' : creating ? 'Crear cuenta →' : 'Iniciar sesión →'}</button><button type="button" className="auth-switch" onClick={() => { setCreating(!creating); setMessage(''); }}>{creating ? 'Ya tengo cuenta · Iniciar sesión' : '¿Primera vez? Crear una cuenta'}</button><div className="auth-privacy">Tus pagos son privados y solo tú puedes acceder a ellos.</div></form></div>;
+  return <div className="auth-screen"><form className="auth-card" onSubmit={submit}><div className="brand auth-brand"><span className="brand-icon">f.</span><span>fecha<span className="brand-dot">.</span></span></div><span className="modal-kicker">ESPACIO PERSONAL SEGURO</span><h1>{mode === 'reset' ? 'Recupera tu acceso' : mode === 'signup' ? 'Crea tu cuenta' : 'Qué bueno verte'}<span className="title-period">.</span></h1><p>{mode === 'reset' ? 'Te enviaremos un enlace para que puedas crear una contraseña nueva.' : 'Entra para ver tus pagos y mantenerlos sincronizados en tus dispositivos.'}</p><label className="field-label">Correo electrónico<input autoComplete="email" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@correo.com" /></label>{mode !== 'reset' && <label className="field-label">Contraseña<input autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} type="password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} placeholder="Al menos 8 caracteres" /></label>}{message && <div className="auth-message" role="status">{message}</div>}<button className="save-button auth-submit" disabled={busy}>{busy ? 'Un momento…' : mode === 'reset' ? 'Enviar enlace de recuperación →' : mode === 'signup' ? 'Crear cuenta →' : 'Iniciar sesión →'}</button>{mode === 'signin' && <button type="button" className="auth-switch forgot-link" onClick={() => { setMode('reset'); setMessage(''); }}>¿Olvidaste tu contraseña?</button>}<button type="button" className="auth-switch" onClick={() => { setMode(mode === 'reset' ? 'signin' : mode === 'signup' ? 'signin' : 'signup'); setMessage(''); }}>{mode === 'reset' ? 'Volver a iniciar sesión' : mode === 'signup' ? 'Ya tengo cuenta · Iniciar sesión' : '¿Primera vez? Crear una cuenta'}</button><div className="auth-privacy">Tus pagos son privados y solo tú puedes acceder a ellos.</div></form></div>;
+}
+
+function PasswordRecoveryGate({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [completed, setCompleted] = useState(false);
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault(); setMessage('');
+    if (password.length < 8) { setMessage('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (password !== confirmation) { setMessage('Las contraseñas no coinciden.'); return; }
+    if (!supabase) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) setMessage('No se pudo actualizar la contraseña. Solicita un nuevo enlace e inténtalo otra vez.');
+      else { setCompleted(true); setMessage('Tu contraseña se actualizó correctamente.'); }
+    } catch {
+      setMessage('No se pudo actualizar la contraseña. Revisa tu conexión e inténtalo de nuevo.');
+    } finally { setBusy(false); }
+  };
+  return <div className="auth-screen"><form className="auth-card" onSubmit={submit}><div className="brand auth-brand"><span className="brand-icon">f.</span><span>fecha<span className="brand-dot">.</span></span></div><span className="modal-kicker">RECUPERACIÓN SEGURA</span><h1>Contraseña nueva<span className="title-period">.</span></h1><p>Elige una contraseña de al menos 8 caracteres para volver a entrar.</p>{!completed && <><label className="field-label">Nueva contraseña<input autoComplete="new-password" type="password" minLength={8} required value={password} onChange={event => setPassword(event.target.value)} placeholder="Al menos 8 caracteres" /></label><label className="field-label">Confirma la contraseña<input autoComplete="new-password" type="password" minLength={8} required value={confirmation} onChange={event => setConfirmation(event.target.value)} placeholder="Escríbela de nuevo" /></label></>}{message && <div className="auth-message" role="status">{message}</div>}{completed ? <button type="button" className="save-button auth-submit" onClick={onDone}>Ir a mi calendario →</button> : <button className="save-button auth-submit" disabled={busy}>{busy ? 'Guardando…' : 'Guardar contraseña →'}</button>}</form></div>;
 }
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(!supabase);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [role, setRole] = useState<'admin' | 'user'>('admin');
   const [settings, setSettings] = useState<Settings>(() => { try { return { ...defaultSettings, ...JSON.parse(localStorage.getItem('fecha-settings') || '{}') as Partial<Settings> }; } catch { return defaultSettings; } });
   const [mediaBusy, setMediaBusy] = useState(false);
@@ -91,7 +123,7 @@ function App() {
     const client = supabase;
     if (!client) return;
     client.auth.getSession().then(({ data }) => { setSession(data.session); setAuthReady(true); });
-    const { data } = client.auth.onAuthStateChange((_event, currentSession) => { setSession(currentSession); setAuthReady(true); });
+    const { data } = client.auth.onAuthStateChange((event, currentSession) => { setSession(currentSession); setAuthReady(true); if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true); });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -227,6 +259,7 @@ function App() {
 
   const exportBackup = () => { const blob = new Blob([JSON.stringify({ payments, settings }, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'fecha-respaldo.json'; link.click(); URL.revokeObjectURL(url); };
   if (!authReady) return <div className="auth-screen"><div className="auth-card">Cargando tu espacio seguro…</div></div>;
+  if (passwordRecovery) return <PasswordRecoveryGate onDone={() => setPasswordRecovery(false)} />;
   if (supabase && !session) return <AuthGate />;
   const activeView = view === 'account' || view === 'calendar' || view === 'upcoming' || role === 'admin' ? view : 'calendar';
   const goToPayment = (payment: Payment) => { setView('calendar'); setSelected(payment.date); setMonth(new Date(`${payment.date}T12:00:00`)); };
