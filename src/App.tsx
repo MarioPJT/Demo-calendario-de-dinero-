@@ -140,6 +140,17 @@ function App() {
     return () => { cancelled = true; };
   }, [role, view]);
 
+  useEffect(() => {
+    const client = supabase;
+    const userId = session?.user.id;
+    if (!client || !userId || (view !== 'calendar' && view !== 'upcoming')) return;
+    let cancelled = false;
+    void client.from('payments').select('*').eq('user_id', userId).order('date').order('time').then(({ data }) => {
+      if (!cancelled && data?.length) setPayments(data.map(row => ({ id: row.id, title: row.title, amount: Number(row.amount), date: row.date, time: String(row.time).slice(0, 5), note: row.note, color: row.color, done: row.done })));
+    });
+    return () => { cancelled = true; };
+  }, [session?.user.id, view]);
+
   const save = (next: Payment[]) => { setPayments(next); localStorage.setItem('fecha-payments', JSON.stringify(next)); if (supabase && session?.user) void supabase.from('payments').upsert(next.map(payment => ({ ...payment, user_id: session.user.id }))); };
   const updateSettings = (next: Settings) => { setSettings(next); localStorage.setItem('fecha-settings', JSON.stringify(next)); document.documentElement.style.setProperty('--accent', next.accent); if (supabase && session?.user) void supabase.from('profiles').update({ display_name: next.workspace, settings: next }).eq('id', session.user.id); };
   const updateUserRole = async (userId: string, nextRole: UserRecord['role']) => {
